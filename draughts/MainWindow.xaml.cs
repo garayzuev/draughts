@@ -19,6 +19,8 @@ namespace draughts
     {
         public int x;
         public int y;
+
+
         public Position(int x, int y)
         {
             this.x = x;
@@ -29,14 +31,14 @@ namespace draughts
     {
         Color blockDark = Color.FromRgb(130, 81, 0);
         Color blockWhite = Color.FromRgb(254, 205, 114);
-        Color draughtWhite = Color.FromRgb(250, 250, 250);
+        Color draughtWhite = Color.FromRgb(200, 200, 200);
         Color draughtBlack = Color.FromRgb(100, 100, 100);
-        Color kingWhite = Color.FromRgb(200, 200, 200);
+        Color kingWhite = Color.FromRgb(250, 250, 250);
         Color kingBlack = Color.FromRgb(0, 0, 0);
         Color stroke = Color.FromRgb(0, 0, 0);
         Color selected = Color.FromRgb(0, 0, 255);
         bool isSelected = false;
-        bool isWin = false;
+        bool isGameOver = false;
         Position selectedEllipsePosition;
         Table t;
 
@@ -45,10 +47,25 @@ namespace draughts
         {
             InitializeComponent();
             this.UpdateLayout();
+            this.LayoutUpdated += MainWindow_LayoutUpdated;
+            this.ContextMenuOpening += MainWindow_ContextMenuOpening;
+            newGame();
+
+        }
+        void newGame()
+        {
+            clear();
+            repaint();
+            isSelected = false;
             initChessmate(blockDark, blockWhite);
             initDraughts(draughtBlack, draughtWhite);
-            this.LayoutUpdated += MainWindow_LayoutUpdated;
             t = new Table(this);
+            repaint();
+        }
+        void MainWindow_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            MenuItem restart = new MenuItem();
+            restart.Name = "hello";
 
         }
         private void clear()
@@ -97,7 +114,7 @@ namespace draughts
                     };
                     e.SetValue(Canvas.LeftProperty, BlockW * (j + (i % 2 == 0 ? 1 : 0)) + 10);
                     e.SetValue(Canvas.TopProperty, BlockH * i + 10);
-                    e.MouseDown += e_MouseDown;
+                    e.MouseDown += ellipse_MouseDown;
                     Canv.Children.Add(e);
 
                 }
@@ -115,12 +132,12 @@ namespace draughts
                     };
                     e.SetValue(Canvas.LeftProperty, BlockW * (j + (i % 2 == 0 ? 1 : 0)) + 10);
                     e.SetValue(Canvas.TopProperty, BlockH * i + 10);
-                    e.MouseDown += e_MouseDown;
+                    e.MouseDown += ellipse_MouseDown;
                     Canv.Children.Add(e);
 
                 }
         }
-        void e_MouseDown(object sender, MouseButtonEventArgs e)
+        void ellipse_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if ((sender as Ellipse).Stroke.ToString() == stroke.ToString() && ((sender as Ellipse).Fill.ToString() == (t.isTurnBlack() ? draughtBlack.ToString() : draughtWhite.ToString()) || (sender as Ellipse).Fill.ToString() == (t.isTurnBlack() ? kingBlack.ToString() : kingWhite.ToString())))
             {
@@ -162,59 +179,49 @@ namespace draughts
                 {
                     t.moveTo(pos);
                     object el = null;
-                    foreach (UIElement elem in Canv.Children)
+                    Ellipse selectedEllipse = findSelectedEllipse();
+
+                    selectedEllipse.Stroke = new SolidColorBrush(stroke);
+                    if (!t.endOfTurn())
                     {
-                        if (elem is Ellipse && (elem as Ellipse).Stroke.ToString() != stroke.ToString())
-                        {
-                            (elem as Ellipse).Stroke = new SolidColorBrush(stroke);
-                            if (!t.endOfTurn())
-                            {                                
-                                el = elem;
-                                isSelected = false;
-                                e_MouseDown(el, e);
-                                return;
-                            }
-                            else
-                            {
-                                if (t.notMoves())
-                                {
-                                    notMovesMessage();
-                                    break;
-                                }
-                                if (isWin)
-                                    break;
-                            }
-                        }
+                        el = selectedEllipse;
+                        isSelected = false;
+                        ellipse_MouseDown(el, e);
+                        return;
+                    }
+                    else
+                    {
+                        if (t.notMoves(t.isTurnBlack()))                        
+                            notMovesMessage();
+                        
+                        if (isGameOver)
+                            repaint();
+                        t.turnAI();
+                        if (t.notMoves(!t.isTurnBlack()))
+                            notMovesMessage();
+                        if (isGameOver)
+                            repaint();
                     }
                     isSelected = false;
                 }
             }
-            if (isWin) isWin = false;
+            if (isGameOver) isGameOver = false;
         }
-
+        public void errorMessage()
+        {
+            MessageBox.Show("ERROR!!!");
+        }
         public void notMovesMessage()
         {
-            MessageBox.Show(t.isTurnBlack()?"Black can't move":"White can't move");
-            clear();
-            repaint();
-            isSelected = false;
-            initChessmate(blockDark, blockWhite);
-            initDraughts(draughtBlack, draughtWhite);
-            t = new Table(this);
-            repaint();
-            isWin = true;
+            MessageBox.Show(t.isTurnBlack() ? "Black can't move" : "White can't move");
+            newGame();
+            isGameOver = true;
         }
         public void victoryMessage()
         {
             MessageBox.Show(t.isTurnBlack() ? "Black victory!" : "White victory!");
-            clear();
-            repaint();
-            isSelected = false;
-            initChessmate(blockDark, blockWhite);
-            initDraughts(draughtBlack, draughtWhite);
-            t = new Table(this);
-            repaint();
-            isWin = true;
+            newGame();
+            isGameOver = true;
         }
         private void repaint()
         {
@@ -269,47 +276,53 @@ namespace draughts
             return k;
         }
 
-        public void setKing()
+        private Ellipse findSelectedEllipse()
+        {
+            foreach (UIElement elem in Canv.Children)
+                if (elem is Ellipse && (elem as Ellipse).Stroke.ToString() != stroke.ToString())
+                    return ((elem as Ellipse));
+            return null;
+        }
+        private Ellipse findEllipseByPos(int x, int y)
         {
             foreach (UIElement elem in Canv.Children)
             {
-                if (elem is Ellipse && (elem as Ellipse).Stroke.ToString() != stroke.ToString()) {
-                    if ((elem as Ellipse).Fill.ToString() == draughtBlack.ToString())
-                        (elem as Ellipse).Fill = new SolidColorBrush(kingBlack);
-                    if ((elem as Ellipse).Fill.ToString() == draughtWhite.ToString())
-                        (elem as Ellipse).Fill = new SolidColorBrush(kingWhite);
+                if (elem is Ellipse)
+                {
+                    Position pos = getPositionEllipse(Double.Parse((elem as Ellipse).GetValue(Canvas.LeftProperty).ToString()), Double.Parse((elem as Ellipse).GetValue(Canvas.TopProperty).ToString()));
+                    if (x == pos.x && y == pos.y)
+                    {
+                        return (elem as Ellipse);
+                    }
                 }
-
+            }
+            return null;
+        }
+        public void setKing(int x, int y)
+        {
+            Ellipse elem = findEllipseByPos(x, y);
+            if (elem != null)
+            {
+                if (elem.Fill.ToString() == draughtBlack.ToString())
+                    elem.Fill = new SolidColorBrush(kingBlack);
+                if (elem.Fill.ToString() == draughtWhite.ToString())
+                    elem.Fill = new SolidColorBrush(kingWhite);
             }
         }
 
         public void removeEllipse(int x, int y)
         {
-            int yy, xx;
-            foreach (UIElement elem in Canv.Children)
-            {
-                if (elem is Ellipse)
-                {
-                    yy = (int)((Double.Parse((elem as Ellipse).GetValue(Canvas.TopProperty).ToString()) - 10) / ((elem as Ellipse).Height + 20));
-                    xx = (int)((Double.Parse((elem as Ellipse).GetValue(Canvas.LeftProperty).ToString()) - 10) / ((elem as Ellipse).Width + 20));
-                    if (x == xx && y == yy)
-                    {
-                        Canv.Children.Remove(elem);
-                        return;
-                    }
-                }
-            }
+            Ellipse elem = findEllipseByPos(x, y);
+            if (elem != null)
+                Canv.Children.Remove(elem);
         }
-        public void turnOn(int x, int y)
+        public void turnOn(int from_x, int from_y, int to_x, int to_y)
         {
-            foreach (UIElement elem in Canv.Children)
+            Ellipse elem = findEllipseByPos(from_x, from_y);
+            if (elem != null)
             {
-                if (elem is Ellipse && (elem as Ellipse).Stroke.ToString() != stroke.ToString())
-                {
-                    (elem as Ellipse).SetValue(Canvas.LeftProperty, BlockW * x + 10);
-                    (elem as Ellipse).SetValue(Canvas.TopProperty, BlockH * y + 10);
-                }
-
+                elem.SetValue(Canvas.LeftProperty, BlockW * to_x + 10);
+                elem.SetValue(Canvas.TopProperty, BlockH * to_y + 10);
             }
         }
     }

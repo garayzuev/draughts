@@ -92,6 +92,15 @@ namespace draughts
 
             return false;
         }
-        
+
+        public static Draught findDraught(Position pos, List<Draught> draughts)
+        {
+            foreach (Draught d in draughts)
+            {
+                if (d.isMyPosition(pos))
+                    return d;
+            }
+            return null;
+        }
     }
 }

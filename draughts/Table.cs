@@ -8,9 +8,10 @@ namespace draughts
 {
     class Table
     {
+        AI comp;
         List<Draught> draughts;
         List<Draught> attackers;
-        bool isBlackTurn = false;
+        bool isBlackTurn = true;
         bool isAttacking = false;
         Draught select;
         MainWindow mw;
@@ -25,6 +26,7 @@ namespace draughts
             for (int i = 7; i > 4; i--)
                 for (int j = 0; j < 4; j++)
                     draughts.Add(new Draught(true, new Position(i != 6 ? j * 2 : j * 2 + 1, i)));
+            comp = new AI(false);
 
         }
         public bool isTurnBlack()
@@ -34,9 +36,42 @@ namespace draughts
         public void startOfTurn(Position pos)
         {
             attackers = Arbiter.getDraughtsNeedToMove(isBlackTurn, draughts);
-            select = findDraught(pos);
+            select = Arbiter.findDraught(pos,draughts);
         }
+        public void turnAI()
+        {
+            Turn t = comp.doTurn(draughts);
+            if (t.d.getPosition().x != -1)
+            {
+                select = t.d;
+                if (t.isAttack)
+                {
+                    aiAttack(t.to);
+                    while (Arbiter.getDraughtsNeedToMove(isBlackTurn, draughts) != null)
+                    {
+                        Turn tur = comp.doTurn(draughts);
+                        if (tur.d.getPosition().x != -1)
+                        {
+                            select = tur.d;
+                            aiAttack(tur.to);
+                        }
+                        else
+                            mw.errorMessage();
+                    }
+                }
+                else
+                {
+                    moveTo(t.to);
+                }
+                if (Arbiter.isVictory(isBlackTurn, draughts))
+                {
+                    mw.victoryMessage();
+                }
+            }
+            else mw.errorMessage();
 
+            isBlackTurn = !isBlackTurn;
+        }
         public bool wantMove(Position to)
         {
             if (attackers != null)
@@ -55,11 +90,15 @@ namespace draughts
         }
         public void moveTo(Position to)
         {
+            Position from = select.getPosition();
+            bool isKing = select.isKing();
             if (Arbiter.isAttack(select, to, draughts))
                 attack(to);
             else
-                select.moveTo(to);
-            mw.turnOn(to.x, to.y);
+                select.moveTo(to);            
+            if (isKing != select.isKing())
+                mw.setKing(from.x, from.y);
+            mw.turnOn(from.x,from.y,to.x, to.y);
         }
         public bool endOfTurn()
         {
@@ -79,10 +118,10 @@ namespace draughts
                 return true;
             }
         }
-        public bool notMoves()
+        public bool notMoves(bool isBlack)
         {
             foreach(Draught d in draughts)
-                if (d.isBlack() == isTurnBlack())
+                if (d.isBlack() == isBlack)
                 {
                     foreach (Position p in d.getFreeMoves())
                         if (Arbiter.canMove(d, p, draughts))
@@ -93,31 +132,35 @@ namespace draughts
                 }
             return true;
         }
-        private Draught findDraught(Position pos)
-        {
-            foreach (Draught d in draughts)
-            {
-                if (d.isMyPosition(pos))
-                    return d;
-            }
-            return null;
-        }
+        
         public bool isContinueAttack()
         {
             return isAttacking;
         }
-        private void attack(Position to)
+        private void aiAttack(Position attacked)
         {
-            Position attacked = new Position();
-            attacked.x = to.x - select.getPosition().x > 0 ? to.x - 1 : to.x + 1;
-            attacked.y = to.y - select.getPosition().y > 0 ? to.y - 1 : to.y + 1;
-            draughts.Remove(findDraught(attacked));
+            Position from = select.getPosition();
+            Position to = new Position();
+            to.x = attacked.x - select.getPosition().x > 0 ? attacked.x + 1 : attacked.x - 1;
+            to.y = attacked.y - select.getPosition().y > 0 ? attacked.y + 1 : attacked.y - 1;
+            draughts.Remove(Arbiter.findDraught(attacked, draughts));
             mw.removeEllipse(attacked.x, attacked.y);
             bool isKing = select.isKing();
             select.moveTo(to);
-            isAttacking = true;
             if (isKing != select.isKing())
-                mw.setKing();
+                mw.setKing(from.x,from.y);
+            mw.turnOn(from.x, from.y, to.x, to.y);
+        }
+        private void attack(Position to)
+        {
+            Position from = select.getPosition();
+            Position attacked = new Position();
+            attacked.x = to.x - select.getPosition().x > 0 ? to.x - 1 : to.x + 1;
+            attacked.y = to.y - select.getPosition().y > 0 ? to.y - 1 : to.y + 1;
+            draughts.Remove(Arbiter.findDraught(attacked,draughts));
+            mw.removeEllipse(attacked.x, attacked.y);
+            select.moveTo(to);
+            isAttacking = true;
         }
     }
 }

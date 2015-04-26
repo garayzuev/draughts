@@ -165,7 +165,12 @@ namespace draughts
                 _isKing = true;
             }
         }
-
+        public Draught clone()
+        {
+            Draught d = new Draught(isBlack(), this.pos);
+            d._isKing = this._isKing;
+            return d;
+        }
 
     }
 }
