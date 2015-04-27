@@ -41,17 +41,133 @@ namespace draughts
         bool isGameOver = false;
         Position selectedEllipsePosition;
         Table t;
-
         double BlockW, BlockH;
         public MainWindow()
         {
             InitializeComponent();
             this.UpdateLayout();
             this.LayoutUpdated += MainWindow_LayoutUpdated;
-            this.ContextMenuOpening += MainWindow_ContextMenuOpening;
+            initContextMenu();
+            this.MinHeight = 200 + 35;
+            this.MinWidth = 200 + 15;
+            this.Title = "Draughts";
             newGame();
-
         }
+
+        private void initContextMenu()
+        {
+            ContextMenu contextMenu1 = new ContextMenu();
+            MenuItem item1 = new MenuItem();
+            item1.DataContext = "New game";
+            item1.Header = "New game";
+            MenuItem item2 = new MenuItem();
+            item2.DataContext = "Save game";
+            item2.Header = "Save game";
+            MenuItem item3 = new MenuItem();
+            item3.DataContext = "Load game";
+            item3.Header = "Load game";
+            MenuItem item4 = new MenuItem();
+            item4.DataContext = "Quit";
+            item4.Header = "Quit";
+            contextMenu1.Items.Add(item1);
+            contextMenu1.Items.Add(item2);
+            contextMenu1.Items.Add(item3);
+            contextMenu1.Items.Add(item4);
+
+            this.ContextMenu = contextMenu1;
+            item1.Click += item1_Click;
+            item2.Click += item2_Click;
+            item3.Click += item3_Click;
+            item4.Click += item4_Click;
+        }
+
+        void item3_Click(object sender, RoutedEventArgs e)
+        {
+            System.IO.StreamReader fileR;
+            try { fileR = new System.IO.StreamReader("hello.txt"); }
+            catch (System.IO.FileNotFoundException) { errorMessage(); return; }
+            catch (System.IO.DirectoryNotFoundException) { errorMessage(); return; }
+            List<Draught> list = new List<Draught>();
+            while (!fileR.EndOfStream)
+            {
+                String s = fileR.ReadLine();
+                bool isKing;
+                bool isBlack;
+                Position pos;
+                if (s.Contains("true")) isKing = true;
+                else if (s.Contains("false")) isKing = false;
+                else { errorMessage(); fileR.Close(); return; }
+                if (s.Contains("black")) isBlack = true;
+                else if (s.Contains("white")) isBlack = false;
+                else { errorMessage(); fileR.Close(); return; }
+
+                int st = s.LastIndexOf("(");
+                int end = s.LastIndexOf(")");
+                if (end - st != 4 || s[st + 2] != ',') { errorMessage(); fileR.Close(); return; }
+                int x, y;
+                try
+                {
+                    x = int.Parse(s[st + 1].ToString());
+                    y = int.Parse(s[st + 3].ToString());
+                    if (x > 7 || y > 7) { errorMessage(); fileR.Close(); return; }
+                }
+                catch (System.ArgumentNullException) { errorMessage(); fileR.Close(); return; }
+                catch (System.FormatException) { errorMessage(); fileR.Close(); return; }
+                catch (System.OverflowException) { errorMessage(); fileR.Close(); return; }
+                pos = new Position(x, y);
+                if (Arbiter.findDraught(pos, list) != null) { errorMessage(); fileR.Close(); return; }
+                list.Add(new Draught(isBlack, isKing, pos));
+            }
+            fileR.Close();
+            clear();
+            isSelected = false;
+            initChessmate(blockDark, blockWhite);
+            setEllipseFromFile(list, draughtWhite, draughtBlack, kingWhite, kingBlack);
+            t = new Table(this, list);
+        }
+
+        private void setEllipseFromFile(List<Draught> list, Color white, Color black, Color whiteKing, Color blackKing)
+        {
+            foreach (Draught d in list)
+            {
+                Ellipse e = new Ellipse()
+                {
+                    Fill = new SolidColorBrush(d.isKing() ? (d.isBlack() ? blackKing : whiteKing) : (d.isBlack() ? black : white)),
+                    Height = BlockH - 20,
+                    Width = BlockW - 20,
+                    Stroke = new SolidColorBrush(stroke),
+                    StrokeThickness = 5
+                };
+                e.SetValue(Canvas.LeftProperty, BlockW * (d.getPosition().x) + 10);
+                e.SetValue(Canvas.TopProperty, BlockH * d.getPosition().y + 10);
+                e.MouseDown += ellipse_MouseDown;
+                Canv.Children.Add(e);
+            }
+        }
+        void item2_Click(object sender, RoutedEventArgs e)
+        {
+
+            System.IO.StreamWriter fileRw = new System.IO.StreamWriter("hello.txt");
+            foreach (Draught d in t.getDraughts())
+            {
+                fileRw.Write(d.ToString());
+            }
+            fileRw.Close();
+        }
+
+        void item1_Click(object sender, RoutedEventArgs e)
+        {
+            newGame();
+        }
+
+        void item4_Click(object sender, RoutedEventArgs e)
+        {
+            Environment.Exit(0);
+        }
+
+
+
+
         void newGame()
         {
             clear();
@@ -62,12 +178,7 @@ namespace draughts
             t = new Table(this);
             repaint();
         }
-        void MainWindow_ContextMenuOpening(object sender, ContextMenuEventArgs e)
-        {
-            MenuItem restart = new MenuItem();
-            restart.Name = "hello";
 
-        }
         private void clear()
         {
             Canv.Children.Clear();
@@ -191,12 +302,13 @@ namespace draughts
                     }
                     else
                     {
-                        if (t.notMoves(t.isTurnBlack()))                        
+                        if (t.notMoves(t.isTurnBlack()))
                             notMovesMessage();
-                        
+
                         if (isGameOver)
                             repaint();
-                        t.turnAI();
+                        if(!isGameOver)
+                            t.turnAI();
                         if (t.notMoves(!t.isTurnBlack()))
                             notMovesMessage();
                         if (isGameOver)

@@ -11,7 +11,7 @@ namespace draughts
         AI comp;
         List<Draught> draughts;
         List<Draught> attackers;
-        bool isBlackTurn = true;
+        bool isBlackTurn = false;
         bool isAttacking = false;
         Draught select;
         MainWindow mw;
@@ -26,8 +26,14 @@ namespace draughts
             for (int i = 7; i > 4; i--)
                 for (int j = 0; j < 4; j++)
                     draughts.Add(new Draught(true, new Position(i != 6 ? j * 2 : j * 2 + 1, i)));
-            comp = new AI(false);
+            comp = new AI(true);
 
+        }
+        public Table(MainWindow mw, List<Draught> list)
+        {
+            this.mw = mw;
+            draughts = list;
+            comp = new AI(true);
         }
         public bool isTurnBlack()
         {
@@ -72,6 +78,10 @@ namespace draughts
 
             isBlackTurn = !isBlackTurn;
         }
+        public List<Draught> getDraughts()
+        {
+            return draughts;
+        }
         public bool wantMove(Position to)
         {
             if (attackers != null)
@@ -95,7 +105,8 @@ namespace draughts
             if (Arbiter.isAttack(select, to, draughts))
                 attack(to);
             else
-                select.moveTo(to);            
+                select.moveTo(to);
+            
             if (isKing != select.isKing())
                 mw.setKing(from.x, from.y);
             mw.turnOn(from.x,from.y,to.x, to.y);

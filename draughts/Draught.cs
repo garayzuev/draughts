@@ -15,22 +15,21 @@ namespace draughts
         bool _isBlack;
         bool _isKing;
         Position pos;
-        bool isSelected;
-
+                
         public Draught(bool isBlack, Position pos)
         {
             this._isBlack = isBlack;
-            _isKing = false;
-            isSelected = false;            
+            _isKing = false;           
             moveTo(pos);
         }
 
-
-        public void select()
+        public Draught(bool isBlack, bool isKing, Position pos)
         {
-            isSelected = true;
+            this._isBlack = isBlack;
+            this._isKing = isKing;
+            this.pos = pos;
         }
-        
+
         public bool canMoveWithAttack(Position pos)
         {
             if (!isKing())
@@ -172,5 +171,11 @@ namespace draughts
             return d;
         }
 
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append("Draught: ").Append(isKing() ? "true" : "false").Append(" ").Append("(" + pos.x + "," + pos.y + ")").Append(" " + (isBlack() ? "black" : "white")).AppendLine();
+            return sb.ToString();
+        }
     }
 }
